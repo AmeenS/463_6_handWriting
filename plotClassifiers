@@ -1,0 +1,115 @@
+# Take file of handwritten characters (pngs) and differentiate them according to linear classifiers. 
+#
+# 2014.14.04
+# AMS
+
+
+from numpy import * 
+import Image 
+import pylab as pl 
+from glob import glob 
+
+set_printoptions(linewidth = 220) 
+
+pngs = glob('*ringland3*.png') 
+d = {'_a':'r', '_1':'g', '_8':'b', '_9':'k', '04':'c'} 
+colors = [ d[png[-6:-4]] for png in pngs ] 
+
+nfeatures = 6 
+X = empty( (nfeatures, len(pngs)) ) 
+
+
+for i, png in enumerate( pngs ): # enumerate gives number and index 
+	im = Image.open(png) 
+	a4 = array(im) 
+	a = (255 - a4[:,:,0])/255.	# Extract the R layer.ignore opacity 
+
+	# weight
+	totalweight = sum(a) 
+	 
+	x = range(a.shape[1]) 
+	y = range(a.shape[0]-1,-1,-1) # reverses y array 
+	x2d, y2d = meshgrid(x,y) 
+
+	# aspect ratio 
+	xmin = min(x2d[ a>0 ]) 
+	xmax = max(x2d[ a>0 ]) 
+	ymin = min(y2d[ a>0 ]) 
+	ymax = max(y2d[ a>0 ]) 
+
+	width = xmax - xmin 
+	height = ymax - ymin 
+	aspect = height/float(width)	 
+	#print width, height 
+
+	#asymmetry 
+	xmid = (xmax + xmin)/2. 
+	ymid = (ymax + ymin)/2. 
+
+	xcofm = sum( a*x2d ) / totalweight # x center of mass 
+	ycofm = sum( a*y2d ) / totalweight 
+	 
+	xasym = xcofm - xmid	# measure of asymmetry 
+	yasym = ycofm - ymid 
+
+	X[ 0,i ] = totalweight 
+	X[ 1,i ] = width 
+	X[ 2,i ] = height 
+	X[ 3,i ] = aspect 
+	X[ 4,i ] = xasym 
+	X[ 5,i ] = yasym 
+
+features=['total weight', 'width', 'height','aspect','x asym','y asym'] 
+for fi in range(nfeatures): 
+	for fj in range(nfeatures): 
+		pl.subplot( nfeatures, nfeatures, fi*nfeatures + fj +1) 
+		if fi==fj: 
+			pl.plot( X[fj,:], X[fi,:], 'W' ) 
+			cx = (min(X[fj,:])+max(X[fj,:]))/2. 
+			cy = (min(X[fi,:])+max(X[fi,:]))/2. 
+			pl.text(cx, cy, features[fi], ha = 'center')		 
+		else:		 
+			for j in range(X.shape[1]): 
+				pl.plot( X[fj,j], X[fi,j], 'o', color = colors[j], alpha = 0.5 ) 
+		pl.xticks([]) 
+		pl.yticks([]) 
+pl.show() 
+
+# Linear Classifying
+per = [] 
+one = [] 
+nine = [] 
+a = [] 
+eight = [] 
+for i, png in enumerate( pngs ): # enumerate gives number and index 
+	# identifying periods	 
+	if X[0,i] < 300.:	 
+		per.append(png) 
+	# identifying 1 
+	if X[3,i] > 2.62 and X[0,i] > 300.:	 
+		one.append(png) 
+	# identifying 9 
+	if X[5,i] > 2.68:	 
+		nine.append(png) 
+	# identifying a 
+	if X[2,i] < 40.47 and X[0,i] >300.:	 
+		a.append(png) 
+	# identifying 8 
+	if X[2,i] >40.47 and X[5,i] < 2.6 and X[3,i] < 2.6 and X[0,i] > 300.: 
+		eight.append(png) 
+# Print out
+print "Classifying '8'" 
+for item in eight: 
+	print item 
+print "\n\n\nClassifying 'a'" 
+for item in a : 
+	print item 
+print "\n\n\nClassifying '9'"	 
+for item in nine: 
+	print item 
+print "\n\n\nClassifying '1'" 
+for item in one: 
+	print item 
+print "\n\n\nClassifying '.'" 
+for item in per: 
+	print item
